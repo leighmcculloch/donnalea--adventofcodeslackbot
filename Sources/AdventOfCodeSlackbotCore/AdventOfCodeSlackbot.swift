@@ -5,9 +5,16 @@ public final class AdventOfCodeSlackbot {
 
   // MARK: - Keys
   private struct Keys {
-    static let webhook = "SLACK_WEBHOOK"
+    static let webhook = "WEBHOOK"
+    static let webhookType = "WEBHOOK_TYPE"
     static let cookie = "ADVENT_COOKIE"
     static let json = "ADVENT_JSON"
+  }
+
+  // MARK: - WebhookType
+  private struct WebhookType {
+    static let slack = "slack"
+    static let keybase = "keybase"
   }
 
   // MARK: - Constants
@@ -18,6 +25,7 @@ public final class AdventOfCodeSlackbot {
 
   private let jsonURL: URL
   private let webhookURL: URL
+  private let webhookType: String
   private let cookie: String
 
   private let arguments: [String]
@@ -49,15 +57,17 @@ public final class AdventOfCodeSlackbot {
     self.arguments = arguments
 
     guard let webhook = ProcessInfo.processInfo.environment[Keys.webhook],
+      let webhookType = ProcessInfo.processInfo.environment[Keys.webhookType] || WebhookType.slack,
       let json = ProcessInfo.processInfo.environment[Keys.json],
       let cookie = ProcessInfo.processInfo.environment[Keys.cookie],
       let webhookURL = URL(string: webhook), let jsonURL = URL(string: json) else {
-        print("Could not find all environment variables: \(Keys.webhook), \(Keys.json), \(Keys.cookie)")
+        print("Could not find all environment variables: \(Keys.webhook), \(Keys.webhookType), \(Keys.json), \(Keys.cookie)")
         return nil
     }
 
     self.jsonURL = jsonURL
     self.webhookURL = webhookURL
+    self.webhookType = webhookType
     self.cookie = cookie
   }
 
@@ -142,7 +152,14 @@ public final class AdventOfCodeSlackbot {
     print(announcement)
     var request = URLRequest(url: webhookURL)
     request.httpMethod = "POST"
-    let parameters = [ "text": announcement ]
+    let announcementParameterKey: String = {
+      if webhookType == WebhookType.keybase {
+        return "msg"
+      } else {
+        return "text"
+      }
+    }()
+    let parameters = [ announcementParameterKey: announcement ]
     request.httpBody = try? JSONSerialization.data(withJSONObject: parameters, options: [])
     let session = URLSession(configuration: .default)
     let task = session.dataTask(with: request) { data, response, error in
